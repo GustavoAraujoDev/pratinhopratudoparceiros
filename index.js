@@ -1743,8 +1743,6 @@ async function handleStock(productId, skuId, type) {
     },
   });
 
-  alert(skuId);
-
   if (quantity) {
     Swal.fire({
       title: "Processando...",
@@ -1939,9 +1937,11 @@ async function initTables() {
     }
   } catch (err) {
     // Substituído o console.error por alert
-    alert(
-      "Erro ao conectar com o servidor. O sistema funcionará em modo offline (dados locais).",
-    );
+    Toast.fire({
+  icon: "info", // Ícone azul de informação
+  title: "Erro ao conectar com o servidor. O sistema funcionará em modo offline (dados locais).",
+  timer: 5000 // Aumentado para 5 segundos para dar tempo do usuário ler um texto maior
+});
     const saved = localStorage.getItem("prafood_tables_data");
     if (saved) tablesData = JSON.parse(saved);
   }
@@ -2570,7 +2570,10 @@ function updateModifierQty(groupIndex, itemIndex, delta) {
 
   // Validar se ultrapassa o máximo do grupo (ex: Max 4 acompanhamentos)
   if (delta > 0 && currentGroupTotal >= maxGroup) {
-    alert(`O limite deste grupo é de ${maxGroup} itens.`);
+    Toast.fire({
+  icon: "warning",
+  title: `O limite deste grupo é de ${maxGroup} itens.`,
+});
     return;
   }
 
@@ -2846,11 +2849,17 @@ async function testPrint() {
     if (result.success) {
       console.log("Impressão de teste concluída com sucesso.");
     } else {
-      alert(`Erro no teste físico: ${result.error}`);
+     Toast.fire({
+      icon: "error",
+      title: `Erro no teste físico: ${result.error}`,
+    });
     }
   } catch (error) {
     console.error("[FRONT_TEST_ERROR]", error);
-    alert("Erro de rede ao tentar enviar o teste de impressão.");
+    Toast.fire({
+    icon: "error",
+    title: "Erro de rede ao tentar enviar o teste de impressão.",
+  });
   } finally {
     btnTest.disabled = false;
     btnTest.innerText = originalText;
