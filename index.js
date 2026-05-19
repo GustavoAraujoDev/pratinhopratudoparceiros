@@ -1151,6 +1151,7 @@ async function updateOrderStatus(orderId, newStatus) {
       cancelButtonText: "Fechar",
       confirmButtonColor: "#25D366", // Verde WhatsApp
       cancelButtonColor: "#6e7881",
+      allowOutsideClick: false,
     }).then((resultSwal) => {
       if (resultSwal.isConfirmed) {
         enviarNotificacaoWhatsApp(pedidoAtualizado);
