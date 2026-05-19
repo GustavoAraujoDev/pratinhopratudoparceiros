@@ -2120,7 +2120,7 @@ function filterMenuTable() {
  * @param {Object} product - O objeto de metadados do produto adicionado
  */
 function saveItemToTable(product) {
-  // 1. Validações iniciais
+  // 1. Validações iniciais básicas
   const selectedSku = document.querySelector('input[name="sku-opt"]:checked');
   if (!selectedSku)
     return Swal.fire("Atenção", "Selecione um tamanho/opção.", "warning");
@@ -2128,61 +2128,112 @@ function saveItemToTable(product) {
   if (!selectedTable)
     return Swal.fire("Erro", "Nenhuma mesa selecionada.", "error");
 
-  // 2. Captura de valores básicos
-  const qty = parseInt(document.getElementById("main-qty").value) || 1;
-  const priceBase = parseFloat(selectedSku.value);
-
-  // 3. Processamento de modificadores (Adicionais)
-  let modsTotal = 0;
-  let modsList = [];
-  document.querySelectorAll(".modifier-qty").forEach((input) => {
-    const val = parseInt(input.value);
-    if (val > 0) {
-      modsTotal += parseFloat(input.dataset.price) * val;
-      modsList.push(`${val}x ${input.dataset.name}`);
-    }
-  });
-
-  alert(product.id);
-  // 4. Montagem do objeto do item (Compatível com seu Swagger/Schema)
-  const itemComanda = {
-    productId: product.id || "ID-NAO-ENCONTRADO", // Suporta ambos os formatos de ID
-    category: product.categoryId || product.category || "Geral",
-    name: product.name,
-    sku: selectedSku.dataset.name,
-    qty: qty,
-    priceUnit: priceBase + modsTotal,
-    total: (priceBase + modsTotal) * qty,
-    details: modsList.join(", "),
-    obs: document.getElementById("product-note")?.value || "",
-  };
-
-  // 5. Atualização do estado local
-  if (!tablesData[selectedTable]) tablesData[selectedTable] = [];
-  tablesData[selectedTable].push(itemComanda);
-
-  // 6. Atualização da UI
-  updateTableSummary();
-  renderTablesGrid();
-
-  // 7. Sincronização com LocalStorage e MongoDB (A função que criamos antes)
-  saveTablesToStorage();
-
-  // 8. Feedback e fechamento do modal
-  closeAdminTableModal();
-
-  // Toast opcional para confirmar que foi para a mesa
+  // Instância do Toast para validações rápidas
   const Toast = Swal.mixin({
     toast: true,
     position: "top-end",
     showConfirmButton: false,
-    timer: 1500,
+    timer: 2500,
     timerProgressBar: true,
   });
+
+  // 2. Validação de Modificadores (Mínimo e Máximo por Grupo)
+  const groups = product.modifiers || [];
+  for (const group of groups) {
+    const activeItemsInGroup = group.items
+      ? group.items.filter((i) => i.status === "ACTIVE")
+      : [];
+    if (activeItemsInGroup.length === 0) continue;
+
+    const totalSelected = Array.from(
+      document.querySelectorAll(`.modifier-qty[data-group="${group.name}"]`),
+    ).reduce((sum, input) => sum + (parseInt(input.value) || 0), 0);
+
+    if (totalSelected < group.min) {
+      Toast.fire({
+        icon: "warning",
+        title: `O grupo "${group.name}" é obrigatório.`,
+        text: `Selecione pelo menos ${group.min} itens.`,
+      });
+      return; // Para a execução se faltar item obrigatório
+    }
+
+    if (totalSelected > group.max) {
+      Toast.fire({
+        icon: "error",
+        title: "Limite excedido",
+        text: `O grupo "${group.name}" permite no máximo ${group.max} itens.`,
+      });
+      return; // Para a execução se estourar o limite
+    }
+  }
+
+  // 3. Validação de Sabores (Se houver a opção no layout)
+  const flavorElement = document.querySelector(
+    'input[name="selected-flavor"]:checked',
+  );
+  const hasFlavors =
+    document.querySelectorAll('input[name="selected-flavor"]').length > 0;
+  if (hasFlavors && !flavorElement) {
+    return Swal.fire(
+      "Atenção",
+      "Por favor, selecione um sabor para continuar.",
+      "warning",
+    );
+  }
+
+  // 4. Captura de valores básicos e quantidade
+  const qty = parseInt(document.getElementById("main-qty").value) || 1;
+  const priceBase = parseFloat(selectedSku.value) || 0;
+
+  // 5. Processamento de modificadores (Adicionais)
+  let modsTotalUnitario = 0;
+  let modsList = [];
+
+  document.querySelectorAll(".modifier-qty").forEach((input) => {
+    const val = parseInt(input.value) || 0;
+    if (val > 0) {
+      const priceModifier = parseFloat(input.dataset.price) || 0;
+      modsTotalUnitario += priceModifier * val;
+      modsList.push(`${val}x ${input.dataset.name}`);
+    }
+  });
+
+  // Se houver sabor selecionado, adiciona ao texto descritivo
+  if (flavorElement && flavorElement.value) {
+    modsList.unshift(`Sabor: ${flavorElement.value}`);
+  }
+
+  // 6. Montagem do objeto do item calculado corretamente
+  const precoUnitarioTotal = priceBase + modsTotalUnitario;
+  const itemComanda = {
+    productId: product.id || "ID-NAO-ENCONTRADO",
+    category: product.categoryId || product.category || "Geral",
+    name: product.name,
+    sku: selectedSku.dataset.name || "Padrão",
+    qty: qty,
+    priceUnit: precoUnitarioTotal,
+    total: precoUnitarioTotal * qty,
+    details: modsList.join(", "),
+    obs: document.getElementById("product-note")?.value || "",
+  };
+
+  // 7. Atualização do estado local da Mesa
+  if (!tablesData[selectedTable]) tablesData[selectedTable] = [];
+  tablesData[selectedTable].push(itemComanda);
+
+  // 8. Atualização da UI e Sincronização
+  updateTableSummary();
+  renderTablesGrid();
+  saveTablesToStorage();
+
+  // 9. Feedback e fechamento do modal
+  closeAdminTableModal();
 
   Toast.fire({
     icon: "success",
     title: `Item adicionado à Mesa ${selectedTable}`,
+    timer: 1500,
   });
 }
 
