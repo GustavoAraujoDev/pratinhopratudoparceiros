@@ -2264,6 +2264,25 @@ function updateTableSummary() {
     })
     .join("");
 
+  // Controla a exibição do botão de impressão se houver itens na mesa
+  const containerAcoesPrint = document.getElementById("table-print-actions");
+  if (containerAcoesPrint) {
+    if (items.length > 0) {
+      containerAcoesPrint.innerHTML = `
+        <button onclick="printTablePartialOnly()" class="w-full mt-3 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 active:scale-95">
+          <i class="fas fa-print"></i>
+          <span>IMPRIMIR PARCIAL (CONFERÊNCIA)</span>
+        </button>
+        <button onclick="lancarAbatimentoParcialMesa()" class="w-full mt-2 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 active:scale-95">
+          <i class="fas fa-dollar-sign"></i>
+          <span>LANÇAR ABATIMENTO (PAGTO PARCIAL)</span>
+        </button>
+      `;
+    } else {
+      containerAcoesPrint.innerHTML = "";
+    }
+  }
+
   if (items.length === 0) {
     container.innerHTML =
       '<div class="text-center py-6"><i class="fas fa-receipt text-gray-200 text-3xl mb-2"></i><p class="text-gray-400 text-xs font-medium">Comanda vazia</p></div>';
@@ -3046,4 +3065,318 @@ async function connectManualPrinter() {
 
   // Chama a mesma função que o clique do card chamaria, simulando o nome da Epson
   await selectAndConnectPrinter(ip, "Epson TM (IP Manual)");
+}
+
+/**
+ * Compila os dados da mesa ativa no formato exato exigido pelo Schema de pedidos,
+ * mas despacha o payload exclusivamente para a rota de IMPRESSÃO PARCIAL.
+ * Inclui confirmação prévia, mantendo a mesa aberta e livre para novas reimpressões.
+ */
+async function printTablePartialOnly() {
+  const itemsMesa = tablesData[selectedTable];
+
+  if (!itemsMesa || itemsMesa.length === 0) {
+    return Swal.fire({ icon: "error", title: "Mesa sem itens!" });
+  }
+
+  // 🔥 ADICIONADO: Janela de confirmação idêntica ao seu padrão de fechamento
+  const confirmacao = await Swal.fire({
+    title: `Imprimir Parcial da Mesa ${selectedTable}?`,
+    text: "Deseja enviar a conferência de consumo atual para a impressora?",
+    icon: "question",
+    showCancelButton: true,
+    confirmButtonText: "Sim, Imprimir!",
+    cancelButtonText: "Cancelar",
+    confirmButtonColor: "#3085d6", // Azul para diferenciar do vermelho de fechamento
+    cancelButtonColor: "#6b7280",
+  });
+
+  if (!confirmacao.isConfirmed) return;
+
+  // Pegamos o ID do Admin logado para manter o padrão de auditoria
+  const adminId = currentUser?.id || currentUser?.sub || currentUser?._id;
+  const subtotal = itemsMesa.reduce((sum, item) => sum + item.total, 0);
+
+  // MONTAGEM DO OBJETO EM ESTRETA CONFORMIDADE COM SEU SCHEMA
+  const payloadParcial = {
+    companyId: typeof storeTag !== "undefined" ? storeTag : "ADMIN-LOCAL",
+    userId: adminId,
+    cliente: {
+      nome: `Mesa ${selectedTable} (PARCIAL)`,
+      telefone: "000000000",
+      email: "atendimento@local.com",
+    },
+    // --- BLOCO DE SEGURANÇA JURÍDICA (Snapshot) ---
+    consentimento: {
+      aceitou: true,
+      dataHoraAceite: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      versaoTermos: "v1.2024-05",
+      conteudoTermos: legalData?.termos?.content || "",
+      conteudoPrivacidade: legalData?.privacidade?.content || "",
+    },
+    // ----------------------------------------------
+    itens: itemsMesa.map((item) => ({
+      productId: item.productId,
+      name: item.name,
+      category: item.category || "Geral",
+      size: item.sku,
+      quantity: item.qty,
+      unitPrice: item.priceUnit,
+      totalPrice: item.total,
+      extras: item.details ? [item.details] : [],
+      notes: item.obs,
+    })),
+    pagamento: {
+      metodo: "BALCÃO",
+      total: subtotal,
+      status: "PENDING", // Parcial fica pendente, já que não é o encerramento
+    },
+    entrega: {
+      tipo: "DINE_IN",
+      mesa: selectedTable,
+      taxaEntrega: 0,
+    },
+    status: "CONFIRMED",
+  };
+
+  // Loader visual bloqueado idêntico ao seu padrão
+  Swal.fire({
+    title: "Processando parcial...",
+    text: "Enviando comanda para a impressora",
+    didOpen: () => Swal.showLoading(),
+    allowOutsideClick: false,
+  });
+
+  try {
+    // MUDANÇA CRÍTICA: Envia para a rota de impressão parcial, evitando criação de pedido/baixa no banco
+    const res = await fetch(`http://127.0.0.1:3000/pedidos/imprimir-parcial`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mesaId: selectedTable,
+        dadosComanda: payloadParcial, // Envia o JSON estruturado caso o motor de impressão precise ler os itens
+      }),
+    });
+
+    const result = await res.json();
+
+    if (!res.ok) {
+      // ✅ Capta 'erro' (padrão do seu Node), 'error' ou 'message' sem ficar undefined
+      const mensagemReal =
+        result.erro ||
+        result.error ||
+        result.message ||
+        "Erro desconhecido no servidor.";
+      const detalheReal = result.detalhe ? `\nDetalhe: ${result.detalhe}` : "";
+
+      const erroCompleto = `${mensagemReal}${detalheReal}`;
+
+      alert("Resposta do Servidor Backend:\n" + erroCompleto);
+      throw new Error(erroCompleto);
+    }
+
+    // SUCESSO SEM DELETAR NADA:
+    // Não alteramos o tablesData[selectedTable], mantendo a mesa e o botão totalmente operacionais.
+    Swal.fire({
+      icon: "success",
+      title: "Parcial Impressa!",
+      text: "A conferência foi enviada para a impressora com sucesso.",
+      timer: 2000,
+      showConfirmButton: false,
+    });
+  } catch (err) {
+    // 🔥 FAZ O SWEETALERT MOSTRAR O ERRO DETALHADO NA TELA
+    Swal.fire({
+      icon: "error",
+      title: "Erro na Impressão da Parcial",
+      html: `
+        <div class="text-left bg-gray-100 p-3 rounded-lg border border-gray-300 font-mono text-xs overflow-x-auto max-h-40">
+          <strong>Mensagem:</strong> ${err.message}<br><br>
+          <span class="text-red-600">Verifique os logs do terminal do Agente Electron para ver qual propriedade quebrou o PDFKit.</span>
+        </div>
+      `,
+      confirmButtonText: "Fechar",
+      confirmButtonColor: "#ef4444",
+    });
+  }
+}
+
+/**
+ * Abre uma interface para o operador lançar um pagamento parcial (abatimento)
+ * para a mesa ativa, atualizando os dados e enviando a confirmação ao backend.
+ */
+async function lancarAbatimentoParcialMesa() {
+  const itemsMesa = tablesData[selectedTable];
+
+  if (!itemsMesa || itemsMesa.length === 0) {
+    return Swal.fire({ icon: "error", title: "Mesa sem itens para abater!" });
+  }
+
+  // 1. Calcula o total atual da comanda da mesa
+  const subtotalAtual = itemsMesa.reduce((sum, item) => sum + item.total, 0);
+
+  // Se a mesa já estiver zerada devido a abatimentos anteriores
+  if (subtotalAtual <= 0) {
+    return Swal.fire({
+      icon: "info",
+      title: "Esta comanda já foi totalmente abatida!",
+    });
+  }
+
+  // 2. Abre a janela solicitando o método e o valor do abatimento
+  const { value: dadosAbatimento } = await Swal.fire({
+    title: `Abatimento / Parcial - Mesa ${selectedTable}`,
+    html: `
+      <p class="text-sm text-gray-600 mb-2">Total Atual da Mesa: <strong>R$ ${subtotalAtual.toFixed(2)}</strong></p>
+      
+      <div class="text-left mb-3">
+        <label class="block text-xs font-semibold text-gray-700 mb-1">Forma de Pagamento:</label>
+        <select id="swal-metodo-pagamento" class="swal2-select w-full m-0 border border-gray-300 rounded-md p-2 text-sm">
+          <option value="DINHEIRO">Dinheiro</option>
+          <option value="PIX" selected>PIX</option>
+          <option value="CARTAO_DEBITO">Cartão de Débito</option>
+          <option value="CARTAO_CREDITO">Cartão de Crédito</option>
+        </select>
+      </div>
+
+      <div class="text-left">
+        <label class="block text-xs font-semibold text-gray-700 mb-1">Valor a Abater (R$):</label>
+        <input id="swal-valor-abater" type="number" step="0.01" min="0.01" max="${subtotalAtual}" 
+          class="swal2-input w-full m-0 p-2 text-sm border border-gray-300 rounded-md" 
+          placeholder="Ex: 50.00" value="${subtotalAtual.toFixed(2)}">
+      </div>
+    `,
+    focusConfirm: false,
+    showCancelButton: true,
+    confirmButtonText: "Confirmar Pagamento",
+    cancelButtonText: "Voltar",
+    confirmButtonColor: "#10b981", // Verde para simbolizar entrada de dinheiro
+    cancelButtonColor: "#6b7280",
+    preConfirm: () => {
+      const metodo = document.getElementById("swal-metodo-pagamento").value;
+      const valor = parseFloat(
+        document.getElementById("swal-valor-abater").value,
+      );
+
+      if (isNaN(valor) || valor <= 0) {
+        Swal.showValidationMessage(
+          "Por favor, insira um valor válido acima de R$ 0,00",
+        );
+        return false;
+      }
+      if (valor > subtotalAtual) {
+        Swal.showValidationMessage(
+          `O valor não pode ser maior que o total da mesa (R$ ${subtotalAtual.toFixed(2)})`,
+        );
+        return false;
+      }
+
+      return { metodo, valor };
+    },
+  });
+
+  // Se o usuário cancelou a operação
+  if (!dadosAbatimento) return;
+
+  // 3. Exibe o loader visual de processamento
+  Swal.fire({
+    title: "Registrando abatimento...",
+    text: "Atualizando dados financeiros no servidor",
+    didOpen: () => Swal.showLoading(),
+    allowOutsideClick: false,
+  });
+
+  const adminId = currentUser?.id || currentUser?.sub || currentUser?._id;
+
+  try {
+    // 4. ✅ CORRIGIDO: Rota alterada para bater no endpoint de mesas que criamos no Back (/tables/abater-parcial)
+    const res = await fetch(
+      `http://127.0.0.1:3000/products/tables/abater-parcial`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mesaId: selectedTable,
+          companyId: typeof storeTag !== "undefined" ? storeTag : "ADMIN-LOCAL",
+          userId: adminId,
+          valorAbatido: dadosAbatimento.valor,
+          metodoPagamento: dadosAbatimento.metodo,
+        }),
+      },
+    );
+
+    const textoBruto = await res.text();
+    let result = {};
+    try {
+      result = JSON.parse(textoBruto);
+    } catch (e) {
+      result = { message: textoBruto };
+    }
+
+    if (!res.ok) {
+      const msgErro =
+        result.erro ||
+        result.error ||
+        result.message ||
+        "Erro ao processar abatimento.";
+      throw new Error(msgErro);
+    }
+
+    // 5. ATUALIZAÇÃO NO FRONT-END
+    if (dadosAbatimento.valor === subtotalAtual) {
+      tablesData[selectedTable] = []; // Limpa a mesa pois foi totalmente paga
+
+      if (typeof updateTableSummary === "function") updateTableSummary();
+
+      Swal.fire({
+        icon: "success",
+        title: "Mesa Encerrada!",
+        text: "O pagamento integral foi registrado e a mesa foi liberada.",
+        timer: 3000,
+        showConfirmButton: false,
+      });
+    } else {
+      // Se o back devolveu os itens com a linha negativa embutida, atualiza o mapa
+      if (result.itensAtualizados) {
+        tablesData[selectedTable] = result.itensAtualizados;
+      } else {
+        // Fallback manual caso o back não envie o array montado
+        tablesData[selectedTable].push({
+          productId: `CREDITO-${Date.now()}`,
+          name: `PAGTO PARCIAL (${dadosAbatimento.metodo})`,
+          priceUnit: -dadosAbatimento.valor,
+          qty: 1,
+          total: -dadosAbatimento.valor,
+        });
+      }
+
+      // Re-renderiza as tabelas e o resumo lateral para computar a linha de crédito
+
+      if (typeof updateTableSummary === "function") updateTableSummary();
+
+      Swal.fire({
+        icon: "success",
+        title: "Abatimento Registrado!",
+        text: `R$ ${dadosAbatimento.valor.toFixed(2)} abatidos com sucesso. A mesa continua aberta.`,
+        timer: 3000,
+        showConfirmButton: false,
+      });
+    }
+  } catch (err) {
+    console.error("🚨 Erro no abatimento:", err);
+    Swal.fire({
+      icon: "error",
+      title: "Erro ao Abater Valor",
+      html: `
+        <div class="text-left bg-gray-900 text-green-400 p-3 rounded-lg font-mono text-xs overflow-auto max-h-40 border border-gray-700">
+          <strong>Retorno do Servidor:</strong><br>${err.message}
+        </div>
+      `,
+      confirmButtonText: "Fechar",
+      confirmButtonColor: "#ef4444",
+    });
+  }
 }
