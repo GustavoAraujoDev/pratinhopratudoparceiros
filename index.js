@@ -42,6 +42,15 @@ let allProductsGlobal = null; // Cache global de produtos para filtros e manipul
 document.getElementById("login-form").addEventListener("submit", async (e) => {
   e.preventDefault();
 
+  // 🛡️ TRAVA PROFISSIONAL CONTRA DUPLA REQUISIÇÃO
+  const submitButton = e.target.querySelector('button[type="submit"]');
+  const originalButtonText = submitButton ? submitButton.innerHTML : "";
+
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i> Autenticando...`; // Feedback visual profissional
+  }
+
   const email = document.getElementById("login-email").value;
   const password = document.getElementById("login-pass").value;
 
@@ -81,9 +90,14 @@ document.getElementById("login-form").addEventListener("submit", async (e) => {
     showDashboard();
   } catch (err) {
     alert("Erro: " + err.message);
+  } finally {
+    // 🔄 LIBERA O BOTÃO: O bloco 'finally' garante a execução mesmo se houver erro ou acertos
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.innerHTML = originalButtonText; // Restaura o estado e o texto original
+    }
   }
 });
-
 /**
  * Recupera o perfil do usuário logado na sessão ativa.
  * Injeta o status da loja e atualiza o estado global `currentUser`.
@@ -2933,17 +2947,13 @@ function updateUIStatus(state, name = "Nenhum", ip = "0.0.0.0") {
 /* ==========================================================================
    🚀 RECONEXÃO AUTOMÁTICA (RODA LOGO APÓS O CARREGAMENTO DA PÁGINA)
    ========================================================================== */
+// Adicione isto ao final do script para corrigir o comportamento do Refresh (F5)
 window.addEventListener("DOMContentLoaded", () => {
-  const ipSalvo = localStorage.getItem("ultima_impressora_ip");
-  const nomeSalvo = localStorage.getItem("ultima_impressora_nome");
-
-  // Se existir uma impressora gravada no histórico do navegador, reconecta ela!
-  if (ipSalvo && nomeSalvo) {
-    console.log(
-      `[AUTO_CONNECT] Reconectando automaticamente à impressora: ${nomeSalvo} (${ipSalvo})`,
-    );
-    selectAndConnectPrinter(ipSalvo, nomeSalvo);
-  }
+    // Se a aplicação não estiver na tela de login (ou se você usar hashes para controlar as abas)
+    if (window.location.hash !== "#auth") {
+        // Se houver um cookie/sessão ativa ou se o dashboard estiver visível por padrão:
+        showDashboard(); 
+    }
 });
 
 /**
