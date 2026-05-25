@@ -3181,7 +3181,7 @@ async function printTablePartialOnly() {
 
   try {
     // MUDANÇA CRÍTICA: Envia para a rota de impressão parcial, evitando criação de pedido/baixa no banco
-    const res = await fetch(`http://127.0.0.1:3000/pedidos/imprimir-parcial`, {
+    const res = await fetch(`https://prafoodapi.onrender.com/pedidos/imprimir-parcial`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -3324,7 +3324,7 @@ async function lancarAbatimentoParcialMesa() {
   try {
     // 4. ✅ CORRIGIDO: Rota alterada para bater no endpoint de mesas que criamos no Back (/tables/abater-parcial)
     const res = await fetch(
-      `http://127.0.0.1:3000/products/tables/abater-parcial`,
+      `https://prafoodapi.onrender.com/products/tables/abater-parcial`,
       {
         method: "POST",
         credentials: "include",
