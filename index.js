@@ -2313,10 +2313,31 @@ function updateTableSummary() {
  * @param {number} index - Posição do item no vetor interno da comanda da mesa
  */
 function removeItemFromTable(index) {
-  tablesData[selectedTable].splice(index, 1);
-  saveTablesToStorage(); // <--- ADICIONE ESTA LINHA
-  updateTableSummary();
-  renderTablesGrid();
+  Swal.fire({
+    title: 'Tem certeza?',
+    text: "Você não poderá reverter esta ação!",
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'Sim, remover!',
+    cancelButtonText: 'Cancelar'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      // Executa a remoção e atualização apenas se o usuário confirmar
+      tablesData[selectedTable].splice(index, 1);
+      saveTablesToStorage();
+      updateTableSummary();
+      renderTablesGrid();
+
+      // Feedback visual de sucesso opcional
+      Swal.fire(
+        'Removido!',
+        'O item foi removido com sucesso.',
+        'success'
+      );
+    }
+  });
 }
 
 /**
