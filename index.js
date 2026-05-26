@@ -1670,7 +1670,7 @@ setInterval(async () => {
   } catch (err) {
     console.error("❌ Erro no monitor:", err);
   }
-}, 3000); // ⏱️ Monitorando a cada 45 segundos
+}, 45000); // ⏱️ Monitorando a cada 45 segundos
 
 /**
  * ============================================================================
