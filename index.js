@@ -1592,14 +1592,6 @@ function applyDashFilters() {
  * ============================================================================
  */
 
-
-
-/**
- * ============================================================================
- * 📡 MOTOR DE COMUNICAÇÃO EM TEMPO REAL (REAL-TIME POLLING ENGINE)
- * ============================================================================
- */
-
 // 🎵 Descobre a pasta atual onde o index.html está rodando e anexa o arquivo de som
 const urlAtual = window.location.href.substring(
   0,
@@ -1678,7 +1670,7 @@ setInterval(async () => {
   } catch (err) {
     console.error("❌ Erro no monitor:", err);
   }
-}, 45000); // ⏱️ Monitorando a cada 45 segundos
+}, 3000); // ⏱️ Monitorando a cada 45 segundos
 
 /**
  * ============================================================================
