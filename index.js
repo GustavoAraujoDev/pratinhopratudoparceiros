@@ -1626,7 +1626,7 @@ setInterval(async () => {
       primeiraBusca = false;
     }
 
-    const res = await fetch("http://127.0.0.1:3000/pedidos/pendentes", {
+    const res = await fetch("https://prafoodapi.onrender.com/pedidos/pendentes", {
       method: "GET",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
