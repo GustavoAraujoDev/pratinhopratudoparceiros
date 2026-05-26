@@ -7,11 +7,6 @@
 // 🌐 Endpoints e Recursos Estáticos
 const API_URL = "https://prafoodapi.onrender.com/products";
 
-// 🎵 Sistema de Notificação Sonora
-const audioAlerta = new Audio(
-  "https://assets.mixkit.co/active_storage/sfx/991/991-preview.mp3",
-);
-
 // 🔮 Instância Base de Alertas Flutuantes (SweetAlert2)
 const Toast = Swal.mixin({
   toast: true,
@@ -1597,21 +1592,49 @@ function applyDashFilters() {
  * ============================================================================
  */
 
-let primeiraBusca = true; // Flag de depuração de primeira inicialização
+
 
 /**
- * Cria uma thread cíclica com intervalo estável de 5000ms para monitoramento de novos pedidos.
- * Intercepta e dispara notificações sonoras globais e injeta gatilhos de recarga dinâmica baseados no foco visual do operador.
+ * ============================================================================
+ * 📡 MOTOR DE COMUNICAÇÃO EM TEMPO REAL (REAL-TIME POLLING ENGINE)
+ * ============================================================================
  */
+
+// 🎵 Descobre a pasta atual onde o index.html está rodando e anexa o arquivo de som
+const urlAtual = window.location.href.substring(
+  0,
+  window.location.href.lastIndexOf("/"),
+);
+const audioAlerta = new Audio(urlAtual + "/alarm.mp3");
+audioAlerta.load();
+
+// 🔓 Função para liberar o som no primeiro clique do operador
+const liberarSomProducao = () => {
+  audioAlerta
+    .play()
+    .then(() => {
+      audioAlerta.pause();
+      audioAlerta.currentTime = 0;
+      document.removeEventListener("click", liberarSomProducao);
+      document.removeEventListener("touchstart", liberarSomProducao);
+      console.log("🔊 Áudio de produção liberado com sucesso!");
+    })
+    .catch((e) => console.log("Aguardando clique para liberar áudio...", e));
+};
+
+document.addEventListener("click", liberarSomProducao);
+document.addEventListener("touchstart", liberarSomProducao);
+
+let primeiraBusca = true;
+
 setInterval(async () => {
   try {
-    // Log discreto no console apenas para debugar
     if (primeiraBusca) {
-      console.log("🔍 Monitoramento de pedidos ativos...");
+      console.log("🔍 Monitoramento de pedidos ativos (A cada 45s)...");
       primeiraBusca = false;
     }
 
-    const res = await fetch("https://prafoodapi.onrender.com/pedidos/pendentes", {
+    const res = await fetch("http://127.0.0.1:3000/pedidos/pendentes", {
       method: "GET",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -1621,34 +1644,41 @@ setInterval(async () => {
 
     const novosPedidos = await res.json();
 
-    if (novosPedidos.length > 0) {
-      // Tocar som de notificação
-      audioAlerta
-        .play()
-        .catch((e) =>
-          console.log(
-            "Som bloqueado pelo navegador. Clique na página primeiro.",
-          ),
-        );
+    if (novosPedidos && novosPedidos.length > 0) {
+      // 🔊 Toca o som local
+      audioAlerta.currentTime = 0;
+
+      const playPromise = audioAlerta.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.error(
+            "⚠️ O navegador barrou o som. Dê um clique na tela.",
+            err.message,
+          );
+        });
+      }
 
       // Notificação elegante (Toast)
-      Toast.fire({
-        icon: "success",
-        title: `${novosPedidos.length} novo(s) pedido(s) recebido(s)!`,
-        text: "Enviando para a impressora...",
-      });
+      if (typeof Toast !== "undefined") {
+        Toast.fire({
+          icon: "success",
+          title: `${novosPedidos.length} novo(s) pedido(s) recebido(s)!`,
+          text: "Enviando para a impressora...",
+        });
+      }
 
-      // Opcional: Recarregar a lista de pedidos se o usuário estiver na tela de pedidos
-      if (
-        !document.getElementById("section-orders").classList.contains("hidden")
-      ) {
-        loadOrders();
+      // Atualiza a tela de pedidos
+      const sectionOrders = document.getElementById("section-orders");
+      if (sectionOrders && !sectionOrders.classList.contains("hidden")) {
+        if (typeof loadOrders === "function") {
+          loadOrders();
+        }
       }
     }
   } catch (err) {
     console.error("❌ Erro no monitor:", err);
   }
-}, 45000);
+}, 45000); // ⏱️ Monitorando a cada 45 segundos
 
 /**
  * ============================================================================
