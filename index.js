@@ -2438,12 +2438,7 @@ async function closeTableAccount() {
 
   try {
     // 1. Salva no Banco via sua API
-    const pedidoSalvo = await criarPedidoNoSistema(pedidoMesa);
-
-    // 2. Chama a impressão usando o ID retornado pelo banco
-    if (typeof printOrder === "function") {
-      await printOrder(pedidoSalvo.id || pedidoSalvo._id);
-    }
+    await criarPedidoNoSistema(pedidoMesa);
 
     // 3. Limpa os dados locais (F5 não trará os itens de volta pois a mesa fechou)
     tablesData[selectedTable] = [];
