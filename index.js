@@ -378,8 +378,7 @@ async function toggleStatus(productId, currentStatus) {
       throw new Error(errorMsg);
     }
 
-    // Sucesso: Toca áudio e mostra Toast positivo
-    audioAlerta.play().catch(() => {});
+    
     Toast.fire({
       icon: "success",
       title: `Produto ${newStatus === "ACTIVE" ? "Ativado" : "Desativado"} com sucesso!`,
@@ -392,7 +391,7 @@ async function toggleStatus(productId, currentStatus) {
 
     // Se o erro não for o que já mostramos acima (ex: erro de rede)
     if (!error.message.includes("Erro na requisição")) {
-      audioAlerta.play().catch(() => {});
+     
       Toast.fire({
         icon: "warning",
         title: "Não foi possível conectar ao servidor.",
