@@ -455,8 +455,6 @@ async function toggleUserStatus(userId, currentStatus) {
       throw new Error(errorMsg);
     }
 
-    // Sucesso: Alerta sonoro e visual positivo
-    audioAlerta.play().catch(() => {});
     Toast.fire({
       icon: "success",
       title: `Loja ${newStatus === "ACTIVE" ? "Ativada" : "Desativada"} com sucesso!`,
@@ -468,7 +466,6 @@ async function toggleUserStatus(userId, currentStatus) {
     console.error("Erro ao atualizar status do usuário:", error);
 
     if (!error.message.includes("Erro na requisição")) {
-      audioAlerta.play().catch(() => {});
       Toast.fire({
         icon: "warning",
         title: "Não foi possível conectar ao servidor.",
