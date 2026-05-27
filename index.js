@@ -368,8 +368,6 @@ async function toggleStatus(productId, currentStatus) {
       const errorMsg =
         data.message || data.error || "Erro desconhecido no servidor";
 
-      // Toca áudio e mostra Toast de erro
-      audioAlerta.play().catch(() => {}); // catch vazio evita erro se o navegador bloquear autoplay
       Toast.fire({
         icon: "error",
         title: `Erro: ${errorMsg}`,
