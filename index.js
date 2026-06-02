@@ -1190,6 +1190,7 @@ function enviarNotificacaoWhatsApp(pedido) {
     PREPARING: `Olá ${nome}! Seu pedido ${idPedido} já está sendo preparado com todo carinho. 👨‍🍳`,
     READY: `Olá ${nome}! Boas notícias: seu pedido ${idPedido} está pronto para retirada! 🥳`,
     ON_THE_WAY: `Olá ${nome}! Seu pedido ${idPedido} acabou de sair para entrega. Prepare a mesa! 🛵`,
+    OUT_FOR_DELIVERY: `Olá ${nome}! Seu pedido ${idPedido} acabou de sair para entrega. Prepare a mesa! 🛵`,
     DELIVERED: `Olá ${nome}! Seu pedido ${idPedido} foi entregue. Bom apetite! 😋`,
     CANCELED: `Olá ${nome}, o seu pedido ${idPedido} foi cancelado. Se tiver dúvidas, entre em contato conosco.`,
     default: `Olá ${nome}! O status do seu pedido ${idPedido} foi atualizado para: ${statusAtual}.`,
