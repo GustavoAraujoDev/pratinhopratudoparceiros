@@ -1713,36 +1713,26 @@ function filterMenu() {
  * ============================================================================
  */
 
-/**
- * Filtra em tempo real os cartões (cards) de pedidos exibidos no painel operacional.
- * Avalia de forma cruzada correspondências parciais por string (busca) e os metadados
- * estruturais de estado injetados no escopo do elemento (`data-status` e `data-type`).
- */
-// ==========================================
 // CONTROLAR SE EXIBE OU ESCONDE O INTERVALO DE DATAS
-// ==========================================
 function toggleCustomDateRange() {
   const period = document.getElementById("filter-order-period").value;
   const container = document.getElementById("custom-date-container");
 
   if (period === "custom") {
     container.classList.remove("hidden");
+    container.classList.add("flex"); // Garante que fique alinhado lado a lado ao aparecer
   } else {
     container.classList.add("hidden");
+    container.classList.remove("flex");
     document.getElementById("filter-order-start-date").value = "";
     document.getElementById("filter-order-end-date").value = "";
   }
 }
 
-// ==========================================
 // FUNÇÃO CENTRAL: FILTRA TUDO JUNTO NO DOM
-// ==========================================
 function filterOrders() {
-  // Captura os valores de todos os inputs e selects da tela
-  const searchValue = document
-    .getElementById("filter-order-search")
-    .value.toLowerCase()
-    .trim();
+  // Captura e limpa os valores de busca da tela
+  const searchValue = document.getElementById("filter-order-search").value.toLowerCase().trim();
   const statusFilter = document.getElementById("filter-order-status").value;
   const typeFilter = document.getElementById("filter-order-type").value;
   const periodFilter = document.getElementById("filter-order-period").value;
@@ -1753,27 +1743,33 @@ function filterOrders() {
   // Busca todos os cards de pedidos renderizados na tela
   const cards = document.querySelectorAll(".order-card");
 
-  // timestamps auxiliares para cálculo de períodos relativos
+  // Timestamps de apoio baseados na hora local atual
   const now = new Date();
-  const todayStart = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-  ).getTime();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const oneDayInMs = 24 * 60 * 60 * 1000;
 
   cards.forEach((card) => {
-    const cardId = card.getAttribute("data-id").toLowerCase();
-    const cardClient = card.getAttribute("data-client");
-    const cardStatus = card.getAttribute("data-status");
-    const cardType = card.getAttribute("data-type");
+    // Evita quebra de código caso o atributo venha nulo (fallback para "")
+    const cardId = (card.getAttribute("data-id") || "").toLowerCase();
+    const cardClient = (card.getAttribute("data-client") || "").toLowerCase();
+    const cardStatus = card.getAttribute("data-status") || "";
+    const cardType = card.getAttribute("data-type") || "";
 
+    // Tratamento de fuso horário da data do card
     const cardDateStr = card.getAttribute("data-date");
-    const cardDateTime = new Date(cardDateStr).getTime();
+    let cardDateTime = 0;
+    
+    if (cardDateStr) {
+      // Se a string contiver apenas a data (Ex: "2026-06-09"), força horário local para não dar bug de fuso
+      if (cardDateStr.length === 10) {
+        cardDateTime = new Date(cardDateStr + "T00:00:00").getTime();
+      } else {
+        cardDateTime = new Date(cardDateStr).getTime();
+      }
+    }
 
     // 1. Validação por Texto (ID ou Nome do Cliente)
-    const matchesSearch =
-      cardId.includes(searchValue) || cardClient.includes(searchValue);
+    const matchesSearch = cardId.includes(searchValue) || cardClient.includes(searchValue);
 
     // 2. Validação por Status
     const matchesStatus = statusFilter === "all" || cardStatus === statusFilter;
@@ -1788,8 +1784,7 @@ function filterOrders() {
       matchesPeriod = cardDateTime >= todayStart;
     } else if (periodFilter === "yesterday") {
       const yesterdayStart = todayStart - oneDayInMs;
-      matchesPeriod =
-        cardDateTime >= yesterdayStart && cardDateTime < todayStart;
+      matchesPeriod = cardDateTime >= yesterdayStart && cardDateTime < todayStart;
     } else if (periodFilter === "7days") {
       matchesPeriod = cardDateTime >= todayStart - 7 * oneDayInMs;
     } else if (periodFilter === "15days") {
@@ -1797,7 +1792,6 @@ function filterOrders() {
     } else if (periodFilter === "30days") {
       matchesPeriod = cardDateTime >= todayStart - 30 * oneDayInMs;
     } else if (periodFilter === "custom") {
-      // Se escolheu intervalo, valida as datas digitadas nos inputs de date
       if (startDateVal) {
         const startTimestamp = new Date(startDateVal + "T00:00:00").getTime();
         if (cardDateTime < startTimestamp) matchesPeriod = false;
@@ -1808,7 +1802,7 @@ function filterOrders() {
       }
     }
 
-    // Só exibe o card se ele passar em ABSOLUTAMENTE TODOS os filtros ativos
+    // Altera a visibilidade baseado nos filtros cruzados
     if (matchesSearch && matchesStatus && matchesType && matchesPeriod) {
       card.classList.remove("hidden");
     } else {
@@ -1816,7 +1810,6 @@ function filterOrders() {
     }
   });
 }
-
 
 /**
  * ============================================================================
