@@ -1029,20 +1029,25 @@ function renderOrders(orders) {
 
   if (!orders || orders.length === 0) {
     container.innerHTML =
-      '<p class="p-4 text-gray-500 text-center">Nenhum pedido encontrado.</p>';
+      '<p class="p-4 text-gray-500 text-center col-span-full">Nenhum pedido encontrado.</p>';
     return;
   }
 
   container.innerHTML = orders
     .map((order) => {
-      const displayId = order.id || order._id;
-      const databaseId = order._id || order.id;
-      const dataPedido = order.createdAt
-        ? new Date(order.createdAt).toLocaleTimeString()
-        : "00:00";
-      const total = order.pagamento?.total || 0;
+      const displayId = order.id || order._id || "";
+      const databaseId = order._id || order.id || "";
 
-      // Pegamos o tipo de entrega (DELIVERY ou TAKEOUT)
+      // Garante uma string de data válida para o filtro
+      const rawDate = order.createdAt || new Date().toISOString();
+      const dataPedido = order.createdAt
+        ? new Date(order.createdAt).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        : "00:00";
+
+      const total = order.pagamento?.total || 0;
       const tipoEntrega = order.entrega?.tipo || "DELIVERY";
 
       const statusColors = {
@@ -1050,15 +1055,23 @@ function renderOrders(orders) {
         PREPARING: "border-blue-500",
         READY: "border-purple-500",
         ON_THE_WAY: "border-orange-500",
+        OUT_FOR_DELIVERY: "border-orange-500",
         DELIVERED: "border-green-500",
         CANCELED: "border-red-600",
       };
 
-      // MUDANÇA: Adicionamos data-status e data-type no container principal
+      // 🚨 ATENÇÃO AQUI: Injetamos a classe 'order-card' e os data-attributes que o filtro lê!
       return `
-        <div data-status="${order.status}" data-type="${tipoEntrega}" class="bg-white p-6 rounded-xl shadow-sm border-l-8 ${statusColors[order.status] || "border-gray-200"}">
+        <div 
+          class="order-card bg-white p-6 rounded-xl shadow-sm border-l-8 ${statusColors[order.status] || "border-gray-200"}"
+          data-id="${displayId}" 
+          data-client="${(order.cliente?.nome || "cliente").toLowerCase()}" 
+          data-status="${order.status}" 
+          data-type="${tipoEntrega}" 
+          data-date="${rawDate}"
+        >
             <div class="flex justify-between mb-4">
-                <span class="font-bold text-lg text-gray-800">${displayId}</span>
+                <span class="font-bold text-lg text-gray-800">#${displayId.toString().replace("#", "")}</span>
                 <span class="text-sm text-gray-500">${dataPedido}</span>
             </div>
             
@@ -1082,7 +1095,7 @@ function renderOrders(orders) {
             </div>
 
             <div class="flex justify-between items-center">
-                <span class="font-bold text-red-600 text-xl">R$ ${Number(total).toFixed(2)}</span>
+                <span class="font-bold text-red-600 text-xl">R$ ${Number(total).toFixed(2).replace(".", ",")}</span>
                 <div class="flex gap-2">
                     <button onclick="printOrder('${displayId}')" class="bg-gray-100 p-2 rounded hover:bg-gray-200">
                         🖨️
@@ -1093,7 +1106,7 @@ function renderOrders(orders) {
                         <option value="READY" ${order.status === "READY" ? "selected" : ""}>Pronto</option>
                         <option value="OUT_FOR_DELIVERY" ${order.status === "OUT_FOR_DELIVERY" ? "selected" : ""}>Em rota</option>
                         <option value="DELIVERED" ${order.status === "DELIVERED" ? "selected" : ""}>Entregue</option>
-                         <option value="CANCELED" ${order.status === "CANCELED" ? "selected" : ""}>Cancelar</option>
+                        <option value="CANCELED" ${order.status === "CANCELED" ? "selected" : ""}>Cancelar</option>
                     </select>
                 </div>
             </div>
