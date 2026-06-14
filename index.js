@@ -190,8 +190,12 @@ async function loadProducts() {
 }
 
 // 🚀 EXECUÇÃO AUTOMÁTICA AO CARREGAR/ATUALIZAR A PÁGINA
-document.addEventListener("DOMContentLoaded", () => {
-  loadProducts();
+document.addEventListener("DOMContentLoaded", async () => {
+  // Carrega os produtos e as mesas em paralelo para economizar tempo
+  await Promise.all([
+    loadProducts(),
+    initTables()
+  ]);
 });
 
 /**
