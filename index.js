@@ -189,6 +189,11 @@ async function loadProducts() {
   }
 }
 
+// 🚀 EXECUÇÃO AUTOMÁTICA AO CARREGAR/ATUALIZAR A PÁGINA
+document.addEventListener("DOMContentLoaded", () => {
+  loadProducts();
+});
+
 /**
  * ============================================================================
  * 🎛️ COMPONENTES VISUAIS (SELECTORS & RENDERS)
